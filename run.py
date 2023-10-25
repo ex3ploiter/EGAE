@@ -37,7 +37,7 @@ if __name__ == '__main__':
         for alpha in [0.01, 0.1, 1, 10, 100]:
             print('========== alpha={}, reg={} =========='.format(alpha, coeff_reg))
             gae = EGAE(features, adjacency, labels, alpha, layers=layers, acts=acts,
-                       max_epoch=50, max_iter=4, coeff_reg=coeff_reg, learning_rate=learning_rate,dataset=Dataset_pyG,LikelihoodFlag=bool(args.Likelihood))
+                       max_epoch=50, max_iter=4, coeff_reg=coeff_reg, learning_rate=learning_rate,dataset=Dataset_pyG,LikelihoodFlag=args.Likelihood)
             gae.pretrain(10, learning_rate=pretrain_learning_rate)
             losses = gae.run()
             scio.savemat('losses_{}.mat'.format(name), {'losses': np.array(losses)})

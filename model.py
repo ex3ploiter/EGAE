@@ -135,7 +135,7 @@ class EGAE(torch.nn.Module):
         prediction = km.predict(indicator)
         
         new_loss=0.
-        if self.LikelihoodFlag:
+        if self.LikelihoodFlag=='True':
             new_loss=self.ComputeLikelihood(prediction)
         
         
@@ -160,7 +160,7 @@ class EGAE(torch.nn.Module):
                 
                 
                 
-                if self.LikelihoodFlag:
+                if self.LikelihoodFlag=='True':
                     acc, nmi, ari, f1,new_loss=self.clustering()
                     loss = loss+ 4*new_loss
                 
