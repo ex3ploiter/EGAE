@@ -106,7 +106,7 @@ class EGAE(torch.nn.Module):
         self.indicator = self.indicator.detach()
 
 
-    def somebulshit1(self,predicted_class):
+    def ComputeLikelihood(self,predicted_class):
         clusters = {}
         for node, label in enumerate(predicted_class):
             label=label.item()
@@ -134,8 +134,9 @@ class EGAE(torch.nn.Module):
         km = KMeans(n_clusters=self.n_clusters).fit(indicator)
         prediction = km.predict(indicator)
         
+        new_loss=0.
         if self.LikelihoodFlag:
-            new_loss=self.somebulshit1(prediction)
+            new_loss=self.ComputeLikelihood(prediction)
         
         
         
@@ -156,9 +157,12 @@ class EGAE(torch.nn.Module):
                 recons_A = self(Laplacian)
                 
                 loss = self.build_loss(recons_A)
-                acc, nmi, ari, f1,new_loss=self.clustering()
                 
-                loss = loss+ 4*new_loss
+                
+                
+                if self.LikelihoodFlag:
+                    acc, nmi, ari, f1,new_loss=self.clustering()
+                    loss = loss+ 4*new_loss
                 
                 
                 
@@ -174,7 +178,7 @@ class EGAE(torch.nn.Module):
             acc, nmi, ari, f1,new_loss = self.clustering()
             loss = self.build_loss(recons_A)
             objs.append(loss.item())
-            print('loss: %.4f, ACC: %.2f, NMI: %.2f, ARI: %.2f, F1: %.2f' % (loss.item(), acc * 100, nmi * 100, ari * 100, f1 * 100))
+            print(f'epoch : {epoch}, loss: %.4f, ACC: %.2f, NMI: %.2f, ARI: %.2f, F1: %.2f' % (loss.item(), acc * 100, nmi * 100, ari * 100, f1 * 100))
             
         return np.array(objs)
 
