@@ -100,7 +100,7 @@ class LikelihoodComputer(nn.Module):
     def ComputeLikelihood(self):
         adj_output, _, _ = self.model(self.dataset)
         adj_output = nn.Sigmoid()(adj_output)
-        return adj_output.sum()
+        return adj_output.mean()
 
     def forward(self):
         return self.ComputeLikelihood()

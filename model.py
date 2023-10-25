@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from metrics import cal_clustering_metric
 from ComputeLikelihood import LikelihoodComputer
+import argparse
 
 
 class EGAE(torch.nn.Module):
@@ -11,7 +12,7 @@ class EGAE(torch.nn.Module):
     """
     def __init__(self, X, A, labels, alpha, layers=None, acts=None, max_epoch=10, max_iter=50,
                  learning_rate=10**-2, coeff_reg=10**-3,
-                 device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),dataset=None):
+                 device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'),dataset=None,LikelihoodFlag=False):
         super(EGAE, self).__init__()
         self.device = device
         self.X = to_tensor(X).to(self.device)
@@ -41,6 +42,8 @@ class EGAE(torch.nn.Module):
         self.to(self.device)
         
         self.Dataset_pyG=dataset
+        
+        self.LikelihoodFlag=LikelihoodFlag
 
     def _build_up(self):
         self._gcn_parameters = []
@@ -122,7 +125,7 @@ class EGAE(torch.nn.Module):
             likelihood+=model_Likelihood()    
         
         
-        print("\n Hi : ",likelihood)    
+        return   likelihood
                         
     def clustering(self):
         epsilon = torch.tensor(10**-7).to(self.device)
@@ -131,17 +134,17 @@ class EGAE(torch.nn.Module):
         km = KMeans(n_clusters=self.n_clusters).fit(indicator)
         prediction = km.predict(indicator)
         
-        print("prediction :",prediction)
-        self.somebulshit1(prediction)
+        if self.LikelihoodFlag:
+            new_loss=self.somebulshit1(prediction)
         
         
         
         acc, nmi, ari, f1 = cal_clustering_metric(self.labels.cpu().numpy(), prediction)
-        return acc, nmi, ari, f1
+        return acc, nmi, ari, f1,new_loss
 
     def run(self):
         self.update_indicator(self.embedding)
-        acc, nmi, ari, f1 = self.clustering()
+        acc, nmi, ari, f1,new_loss = self.clustering()
         print('Initial ACC: %.2f, NMI: %.2f, ARI: %.2f' % (acc * 100, nmi * 100, ari * 100))
         objs = []
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -151,19 +154,28 @@ class EGAE(torch.nn.Module):
             for i in range(self.max_iter):
                 optimizer.zero_grad()
                 recons_A = self(Laplacian)
+                
                 loss = self.build_loss(recons_A)
+                acc, nmi, ari, f1,new_loss=self.clustering()
+                
+                loss = loss+ 4*new_loss
+                
+                
+                
                 loss.backward()
                 optimizer.step()
                 objs.append(loss.item())
-                # print('loss: ', loss.item())
-                break
+                
+                
+                
+                
             
             self.update_indicator(self.embedding)
-            acc, nmi, ari, f1 = self.clustering()
+            acc, nmi, ari, f1,new_loss = self.clustering()
             loss = self.build_loss(recons_A)
             objs.append(loss.item())
             print('loss: %.4f, ACC: %.2f, NMI: %.2f, ARI: %.2f, F1: %.2f' % (loss.item(), acc * 100, nmi * 100, ari * 100, f1 * 100))
-            break
+            
         return np.array(objs)
 
     def build_pretrain_loss(self, recons_A):
@@ -189,7 +201,7 @@ class EGAE(torch.nn.Module):
             loss.backward()
             optimizer.step()
             # print(loss.item())
-            break
+            
         print(loss.item())
 
 
@@ -287,7 +299,7 @@ class GAE(torch.nn.Module):
             loss.backward()
             optimizer.step()
             # print('loss: ', loss.item())
-            break
+            
         acc, nmi, ari, f1 = self.clustering()
         print('loss: %.4f, ACC: %.2f, NMI: %.2f, ARI: %.2f, F1: %.2f' % (loss.item(), acc * 100, nmi * 100, ari * 100, f1 * 100))
 
