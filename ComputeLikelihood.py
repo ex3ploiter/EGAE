@@ -20,7 +20,7 @@ from VGAE.VGAE_loss import VGAELoss
 
 
 class LikelihoodComputer(nn.Module):
-    def __init__(self, dataset):
+    def __init__(self, X,adj):
         super(LikelihoodComputer, self).__init__()
         self.config = config = {
             "DEVICE": "cuda" if torch.cuda.is_available() else "cpu",
@@ -30,12 +30,13 @@ class LikelihoodComputer(nn.Module):
         }
         self.device = self.config["DEVICE"]
         self.hidden_dim = self.config["hidden_dim"]  # Adjust as needed
-        self.dataset = dataset
+        self.X = X
+        self.adj=adj
 
         # Create models
 
         self.hidden_model, self.mean_model, self.std_model = get_VGAE_hidden_models(
-            dataset, self.hidden_dim)
+           self.X.shape[1] , self.hidden_dim)
 
         # Initialize encoder and decoder
         self.encoder = Encoder(
@@ -58,7 +59,7 @@ class LikelihoodComputer(nn.Module):
 
         self.train()
 
-    def train_epoch(self, data):
+    def train_epoch(self):
         self.model.train()
         self.model.to(self.device)
         self.loss_function.to(self.device)
@@ -67,10 +68,10 @@ class LikelihoodComputer(nn.Module):
         targets = []
         total_loss = 0.
 
-        adj = adj_matrix_from_edge_index(data.x, data.edge_index)
+        adj = adj_matrix_from_edge_index(self.X, self.adj)
 
         self.optimizer.zero_grad()
-        adj_output, mu, logvar = self.model.to(self.device)(data.to(self.device))
+        adj_output, mu, logvar = self.model.to(self.device)(self.X.to(self.device),self.adj)
 
         loss = self.loss_function(adj_output, mu, logvar, adj.to(self.device))
 
@@ -93,9 +94,7 @@ class LikelihoodComputer(nn.Module):
 
     def train(self):
         for epoch in range(self.config["EPOCHS"]):
-            self.train_epoch(
-                data=self.dataset,
-            )
+            self.train_epoch()
 
     def ComputeLikelihood(self):
         adj_output, _, _ = self.model(self.dataset)

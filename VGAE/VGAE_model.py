@@ -25,8 +25,8 @@ class Encoder(nn.Module):
 
         return mean, std
 
-    def forward(self, data: Data):
-        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+    def forward(self, X,adj,edge_attr):
+        x, edge_index, edge_attr = X,adj,None
         mu, logvar = self.encode(x, edge_index, edge_attr)
         return mu, logvar
 
@@ -63,8 +63,8 @@ class VGAE(nn.Module):
         else:
             return mu
 
-    def forward(self, data: Data):
-        mu, logvar = self.encoder(data)
+    def forward(self, X,adj):
+        mu, logvar = self.encoder(X,adj)
         z = self.reparametrize(mu, logvar)
         adj = self.decoder(z)
         return adj, mu, logvar
