@@ -64,7 +64,7 @@ class VGAE(nn.Module):
             return mu
 
     def forward(self, X,adj):
-        mu, logvar = self.encoder(X,adj)
+        mu, logvar = self.encoder(X,adj,None)
         z = self.reparametrize(mu, logvar)
         adj = self.decoder(z)
         return adj, mu, logvar

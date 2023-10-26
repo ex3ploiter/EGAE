@@ -97,7 +97,7 @@ class LikelihoodComputer(nn.Module):
             self.train_epoch()
 
     def ComputeLikelihood(self):
-        adj_output, _, _ = self.model(self.dataset)
+        adj_output, _, _ = self.model(self.X,self.adj)
         adj_output = nn.Sigmoid()(adj_output)
         return adj_output.mean()
 
