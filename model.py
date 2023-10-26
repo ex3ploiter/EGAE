@@ -177,6 +177,9 @@ class EGAE(torch.nn.Module):
             self.update_indicator(self.embedding)
             acc, nmi, ari, f1,new_loss = self.clustering()
             loss = self.build_loss(recons_A)
+            if self.LikelihoodFlag=='True':
+                loss = loss+ 4*new_loss            
+            
             objs.append(loss.item())
             print(f'epoch : {epoch}, loss: %.4f, ACC: %.2f, NMI: %.2f, ARI: %.2f, F1: %.2f' % (loss.item(), acc * 100, nmi * 100, ari * 100, f1 * 100))
             
@@ -209,103 +212,6 @@ class EGAE(torch.nn.Module):
         print(loss.item())
 
 
-class GAE(torch.nn.Module):
-    """
-    X: n * d
-    """
-    def __init__(self, X, A, labels, layers=None, acts=None, max_iter=200,
-                 learning_rate=10**-2, coeff_reg=10**-3,
-                 device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')):
-        super(GAE, self).__init__()
-        self.device = device
-        self.X = to_tensor(X).to(self.device)
-        self.adjacency = to_tensor(A).to(self.device)
-        self.labels = to_tensor(labels).to(self.device)
-        self.n_clusters = self.labels.unique().shape[0]
-        if layers is None:
-            layers = [32, 16]
-        self.layers = layers
-        if acts is None:
-            layers_count = len(self.layers)
-            acts = [torch.nn.functional.relu] * (layers_count - 1)
-            acts.append(torch.nn.functional.linear)
-        self.acts = acts
-        assert len(self.acts) == len(self.layers)
-        self.max_iter = max_iter
-        self.learning_rate = learning_rate
-        self.coeff_reg = coeff_reg
-
-        self.data_size = self.X.shape[0]
-        self.input_dim = self.X.shape[1]
-        self._build_up()
-        self.to(self.device)
-
-    def _build_up(self):
-        self._gcn_parameters = []
-        layers_count = len(self.layers)
-        for i in range(layers_count):
-            if i is 0:
-                self._gcn_parameters.append(get_weight_initial([self.input_dim, self.layers[i]]))
-                continue
-            self._gcn_parameters.append(get_weight_initial([self.layers[i - 1], self.layers[i]]))
-        self._gcn_parameters = torch.nn.ParameterList(self._gcn_parameters)
-
-    def forward(self, Laplacian):
-        layers_count = len(self.layers)
-        embedding = self.X
-        for i in range(layers_count):
-            embedding = Laplacian.mm(embedding.matmul(self._gcn_parameters[i]))
-            if self.acts[i] is None:
-                continue
-            embedding = self.acts[i](embedding)
-        self.embedding = embedding
-
-        recons_A = self.embedding.matmul(self.embedding.t())
-        recons_A = recons_A.sigmoid()
-        return recons_A
-
-    def build_loss_reg(self):
-        layers_count = len(self.layers)
-        loss_reg = 0
-        for i in range(layers_count):
-            loss_reg += self._gcn_parameters[i].abs().sum()
-            # loss_reg += self._gcn_parameters[i].norm()**2
-        return loss_reg
-
-    def build_loss(self, recons_A):
-        # diagonal elements
-        epsilon = torch.tensor(10**-7).to(self.device)
-        recons_A = recons_A - recons_A.diag().diag()
-        pos_weight = (self.data_size * self.data_size - self.adjacency.sum()) / self.adjacency.sum()
-        loss_1 = pos_weight * self.adjacency.mul((1 / torch.max(recons_A, epsilon)).log()) + \
-                 (1 - self.adjacency).mul((1 / torch.max((1-recons_A), epsilon)).log())
-        loss_1 = loss_1.sum() / (self.data_size**2)
-
-        loss_reg = self.build_loss_reg()
-        loss = loss_1 + self.coeff_reg * loss_reg
-        return loss
-
-    def clustering(self):
-        embedding = self.embedding.detach().cpu().numpy()
-        km = KMeans(n_clusters=self.n_clusters).fit(embedding)
-        prediction = km.predict(embedding)
-        print(prediction)
-        acc, nmi, ari, f1 = cal_clustering_metric(self.labels.cpu().numpy(), prediction)
-        return acc, nmi, ari, f1
-
-    def run(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        Laplacian = get_Laplacian(self.adjacency)
-        for i in range(self.max_iter):
-            optimizer.zero_grad()
-            recons_A = self(Laplacian)
-            loss = self.build_loss(recons_A)
-            loss.backward()
-            optimizer.step()
-            # print('loss: ', loss.item())
-            
-        acc, nmi, ari, f1 = self.clustering()
-        print('loss: %.4f, ACC: %.2f, NMI: %.2f, ARI: %.2f, F1: %.2f' % (loss.item(), acc * 100, nmi * 100, ari * 100, f1 * 100))
 
 
 def get_weight_initial(shape):

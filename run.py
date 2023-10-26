@@ -1,5 +1,5 @@
 from data_loader import *
-from model import EGAE, GAE
+from model import EGAE
 import torch
 import warnings
 from torch_geometric.data import Data
